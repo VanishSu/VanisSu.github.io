@@ -4,55 +4,279 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>历史建筑地图-苏州南通篇</title>
-</head>
-<body>
-    <script src="../Cesium.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/cesium@1.63.1/Build/Cesium/Widgets/widgets.css" />
+    <script src="https://unpkg.com/cesium@1.63.1/Build/Cesium/Cesium.js"></script>
+    <script src="https://api.tianditu.gov.cn/cdn/plugins/cesium/cesiumTdt.js"></script>
     <style>
-        @import url(../Widgets/widgets.css);
+        /* @import url(../Widgets/widgets.css); */
         html, body, #cesiumContainer {
             width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
         }
+        #latlng_show{
+            position: absolute;
+            z-index: 991;
+            padding: 3px 10px;
+            font-size: 13px;
+            color: #e9e9e9;
+            background-color: #0006;
+            height: 26px;
+            pointer-events: none;
+        }
+        .label{
+            width:110px;
+            height:26px;
+            float:left;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        .text{
+            font-size:13px;
+            text-align:center;
+            font-family:'Courier New', Courier, monospace;
+            color:#fff; 
+        }
     </style>
-    <div id="cesiumContainer"></div>
+</head>
+<body>
+    <div id="cesiumContainer">
+        <div id="latlng_show" style="height: 26px; right: 0px; bottom: 0px;">
+            <div class="label">
+                <span class="text">
+                    经度：<span id="longitude_show" />
+                </span>
+            </div>
+            <div class="label">
+                <span class="text">
+                    纬度：<span id="latitude_show" />
+                </span>
+            </div>
+            <div class="label" style="width: 150px;">
+                <span class="text">
+                    海拔：<span id="elevation_show"></span> 米
+                </span>
+            </div>
+            <div class="label" style="width: 150px;">
+                <span class="text">
+                    视角高：<span id="altitude_show"></span> 千米
+                </span>
+            </div>
+        </div>
+    </div>
     <script>
-	Cesium.Ion.defaultAccessToken ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3OGNjOGU5Ni00NzUyLTQ2MzYtYjNiMi1hNWU0NTcwOTZjMGEiLCJpZCI6MTg4ODI2LCJpYXQiOjE3MDQ4NDk3NTN9.jy2esjOUJ4h-BTxDFfVxv_i4UJlTAu9s2i_2j_hO_Hc';
-        var viewer = new Cesium.Viewer('cesiumContainer',{
-            animation:false, //动画控制，默认true
-            baseLayerPicker:true,//地图切换控件(底图以及地形图)是否显示,默认显示true
-            fullscreenButton:false,//全屏按钮,默认显示true
-            geocoder:false,//地名查找,默认true
-            timeline:false,//时间线,默认true
-            vrButton:false,//双屏模式,默认不显示false
-            homeButton:true,//主页按钮，默认true
-            selectionIndicator:false,//选中元素显示,默认true
-            navigationHelpButton:false,//导航帮助说明,默认true
-            navigationInstructionsInitiallyVisible:false,
-            automaticallyTrackDataSourceClocks:false,//自动追踪最近添加的数据源的时钟设置,默认true
-            sceneModePicker : true,//是否显示地图2D2.5D3D模式
-            sceneMode: 3,//指定地图影像显示2D
+        const tiandiKey = "9db2df99c32d3060db0f701ce83618b2";       //天地图key，官网申请
+        const baseUrl = 'https://t{s}.tianditu.gov.cn/';
+        let subdomains=['0','1','2','3','4','5','6','7'];
+	    Cesium.Ion.defaultAccessToken ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3OGNjOGU5Ni00NzUyLTQ2MzYtYjNiMi1hNWU0NTcwOTZjMGEiLCJpZCI6MTg4ODI2LCJpYXQiOjE3MDQ4NDk3NTN9.jy2esjOUJ4h-BTxDFfVxv_i4UJlTAu9s2i_2j_hO_Hc';
+        // 底图影像
+        let [tiandiImgModel, tiandiVecModel] = getProviderViewModels();
+        // 初始化Viewer
+        var viewer = new Cesium.Viewer('cesiumContainer', {
+            imageryProviderViewModels: [tiandiImgModel, tiandiVecModel],
+            selectedImageryProviderViewModel: tiandiVecModel,
+            animation: false, //是否允许动画
+            selectionIndicator: false, //选中元素显示,默认true
+            baseLayerPicker: true, //地图切换控件(底图以及地形图)是否显示,默认显示true
+            fullscreenButton: false, //全屏按钮,默认显示true
+            geocoder: false, //地名查找,默认true
+            homeButton: true,
+            infoBox: true,
+            sceneModePicker: false,
+            timeline: false, //时间线,默认true
+            navigationHelpButton: false, //导航帮助说明,默认true
+            navigationInstructionsInitiallyVisible: false, //导航帮助说明,默认true
+            showRenderLoopErrors: false,
+            shadows: false, //光照的阴影效果
+            skyAtmosphere: new Cesium.SkyAtmosphere(),
         });
-		
-		let [tiandiVecModel, tiandiImgModel] = getProviderViewModels();
-		viewer.baseLayerPicker.viewModel.imageryProviderViewModels.unshift(
-	    	tiandiVecModel
-		);
-		viewer.baseLayerPicker.viewModel.imageryProviderViewModels.unshift(
-	    	tiandiImgModel
-		);
-		
-        viewer.camera.flyTo({
-            // fromDegrees()方法，将经纬度和高程转换为世界坐标
-            destination:Cesium.Cartesian3.fromDegrees(120.62,31.30,600000.0)
-        });
-        let geojsonUrl = "geo.geojson"
-
+        console.log(viewer.baseLayerPicker)
+        viewer.baseLayerPicker.viewModel.terrainProviderViewModels = []
+        // 去logo
+        viewer.cesiumWidget.creditContainer.style.display = "none";
+        // 抗锯齿
+        viewer.scene.fxaa = true;
+        viewer.scene.postProcessStages.fxaa.enabled=false;
+        // 水雾特效
+        viewer.scene.globe.showGroundAtmosphere = true;
+        // 设置最大俯仰角，[-90,0]区间内，默认为-30，单位弧度
+        viewer.scene.screenSpaceCameraController.constrainedPitch = Cesium.Math.toRadians(-20);
+        viewer.scene.screenSpaceCameraController.autoResetHeadingPitch = false;
+        viewer.scene.screenSpaceCameraController.inertiaZoom = 0.5;
+        viewer.scene.screenSpaceCameraController.minimumZoomDistance = 50;
+        viewer.scene.screenSpaceCameraController.maximumZoomDistance = 20000000;
+        viewer.scene.screenSpaceCameraController.zoomEventTypes = [
+            Cesium.CameraEventType.RIGHT_DRAG,
+            Cesium.CameraEventType.WHEEL,
+            Cesium.CameraEventType.PINCH,
+        ];
+        viewer.scene.screenSpaceCameraController.tiltEventTypes = [
+            Cesium.CameraEventType.MIDDLE_DRAG,
+            Cesium.CameraEventType.PINCH,
+            {
+                eventType: Cesium.CameraEventType.LEFT_DRAG,
+                modifier: Cesium.KeyboardEventModifier.CTRL,
+            },
+            {
+                eventType: Cesium.CameraEventType.RIGHT_DRAG,
+                modifier: Cesium.KeyboardEventModifier.CTRL,
+            },
+        ];
+        // 取消默认的双击事件
+        viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+        // 重写Home事件
         viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function(e) {
 			e.cancel = true;  
 			viewer.camera.flyTo({
-				destination: Cesium.Rectangle.fromDegrees(120.62, 31.30, 600000.0)
+				destination:Cesium.Cartesian3.fromDegrees(120.62,31.30,600000.0)
 			});
 		});
+        // 叠加影像服务
+		function getProviderViewModels() {
+			//天地图
+			let tiandiVec = new Cesium.UrlTemplateImageryProvider({
+                url: baseUrl + 'DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=' + tiandiKey,
+                subdomains: subdomains,
+                tilingScheme : new Cesium.WebMercatorTilingScheme(),
+                maximumLevel : 18
+            });
+			//天地图影像
+			let tiandiImg = new Cesium.UrlTemplateImageryProvider({
+                url: baseUrl + 'DataServer?T=img_w&x={x}&y={y}&l={z}&tk=' + tiandiKey,
+                subdomains: subdomains,
+                tilingScheme : new Cesium.WebMercatorTilingScheme(),
+                maximumLevel : 18
+            });
 
+			let tiandiVecModel = new Cesium.ProviderViewModel({
+        		name: '天地图矢量',
+        		iconUrl: './Widgets/Images/ImageryProviders/vec_c.png',
+        		tooltip: '天地图矢量',
+        		creationFunction: function () {
+            		return tiandiVec;
+        		}
+    		});
+    		let tiandiImgModel = new Cesium.ProviderViewModel({
+        		name: '天地图影像',
+        		iconUrl: './Widgets/Images/ImageryProviders/img_c.png',
+        		tooltip: '天地图影像',
+        		creationFunction: function () {
+            		return tiandiImg;
+        		}
+    		});
+			return [tiandiImgModel, tiandiVecModel]
+		}
+        // 叠加国界服务
+        var iboMap = new Cesium.UrlTemplateImageryProvider({
+            url: baseUrl + 'DataServer?T=ibo_w&x={x}&y={y}&l={z}&tk=' + tiandiKey,
+            subdomains: subdomains,
+            tilingScheme : new Cesium.WebMercatorTilingScheme(),
+            maximumLevel : 10
+        });
+        viewer.imageryLayers.addImageryProvider(iboMap);
+        // 叠加地形服务
+        var terrainUrls = new Array();
+        for (var i = 0; i < subdomains.length; i++){
+            var url = baseUrl.replace('{s}', subdomains[i]) + 'mapservice/swdx?T=elv_c&tk=' + tiandiKey;
+            terrainUrls.push(url);
+        }
+        var provider = new Cesium.GeoTerrainProvider({
+            urls: terrainUrls
+        });
+        viewer.terrainProvider = provider;
+        // 叠加三维地名服务
+        var wtfs = new Cesium.GeoWTFS({
+            viewer,
+            //三维地名服务，使用wtfs服务
+            subdomains:subdomains,
+            metadata:{
+                boundBox: {
+                    minX: -180,
+                    minY: -90,
+                    maxX: 180,
+                    maxY: 90
+                },
+                minLevel: 1,
+                maxLevel: 20
+            },
+            depthTestOptimization: true,
+            dTOElevation: 15000,
+            dTOPitch: Cesium.Math.toRadians(-70),
+            aotuCollide: true, //是否开启避让
+            collisionPadding: [5, 10, 8, 5], //开启避让时，标注碰撞增加内边距，上、右、下、左
+            serverFirstStyle: true, //服务端样式优先
+            labelGraphics: {
+                font:"28px sans-serif",
+                fontSize: 28,
+                fillColor:Cesium.Color.WHITE,
+                scale: 0.5,
+                outlineColor:Cesium.Color.BLACK,
+                outlineWidth: 2,
+                style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+                showBackground:false,
+                backgroundColor:Cesium.Color.RED,
+                backgroundPadding:new Cesium.Cartesian2(10, 10),
+                horizontalOrigin:Cesium.HorizontalOrigin.LEFT,
+                verticalOrigin:Cesium.VerticalOrigin.TOP,
+                eyeOffset:Cesium.Cartesian3.ZERO,
+                pixelOffset: new Cesium.Cartesian2(5, 5),
+                disableDepthTestDistance:undefined
+            },
+            billboardGraphics: {
+                horizontalOrigin:Cesium.HorizontalOrigin.CENTER,
+                verticalOrigin:Cesium.VerticalOrigin.CENTER,
+                eyeOffset:Cesium.Cartesian3.ZERO,
+                pixelOffset:Cesium.Cartesian2.ZERO,
+                alignedAxis:Cesium.Cartesian3.ZERO,
+                color:Cesium.Color.WHITE,
+                rotation:0,
+                scale:1,
+                width:18,
+                height:18,
+                disableDepthTestDistance:undefined
+            }
+        });
+        // 三维地名服务，使用wtfs服务
+        wtfs.getTileUrl = function(){
+            return baseUrl + 'mapservice/GetTiles?lxys={z},{x},{y}&tk='+ tiandiKey; 
+        }
+        // 三维图标服务
+        wtfs.getIcoUrl = function(){
+            return baseUrl + 'mapservice/GetIcon?id={id}&tk='+ tiandiKey;
+        }
+        wtfs.initTDT([{"x":6,"y":1,"level":2,"boundBox":{"minX":90,"minY":0,"maxX":135,"maxY":45}},{"x":7,"y":1,"level":2,"boundBox":{"minX":135,"minY":0,"maxX":180,"maxY":45}},{"x":6,"y":0,"level":2,"boundBox":{"minX":90,"minY":45,"maxX":135,"maxY":90}},{"x":7,"y":0,"level":2,"boundBox":{"minX":135,"minY":45,"maxX":180,"maxY":90}},{"x":5,"y":1,"level":2,"boundBox":{"minX":45,"minY":0,"maxX":90,"maxY":45}},{"x":4,"y":1,"level":2,"boundBox":{"minX":0,"minY":0,"maxX":45,"maxY":45}},{"x":5,"y":0,"level":2,"boundBox":{"minX":45,"minY":45,"maxX":90,"maxY":90}},{"x":4,"y":0,"level":2,"boundBox":{"minX":0,"minY":45,"maxX":45,"maxY":90}},{"x":6,"y":2,"level":2,"boundBox":{"minX":90,"minY":-45,"maxX":135,"maxY":0}},{"x":6,"y":3,"level":2,"boundBox":{"minX":90,"minY":-90,"maxX":135,"maxY":-45}},{"x":7,"y":2,"level":2,"boundBox":{"minX":135,"minY":-45,"maxX":180,"maxY":0}},{"x":5,"y":2,"level":2,"boundBox":{"minX":45,"minY":-45,"maxX":90,"maxY":0}},{"x":4,"y":2,"level":2,"boundBox":{"minX":0,"minY":-45,"maxX":45,"maxY":0}},{"x":3,"y":1,"level":2,"boundBox":{"minX":-45,"minY":0,"maxX":0,"maxY":45}},{"x":3,"y":0,"level":2,"boundBox":{"minX":-45,"minY":45,"maxX":0,"maxY":90}},{"x":2,"y":0,"level":2,"boundBox":{"minX":-90,"minY":45,"maxX":-45,"maxY":90}},{"x":0,"y":1,"level":2,"boundBox":{"minX":-180,"minY":0,"maxX":-135,"maxY":45}},{"x":1,"y":0,"level":2,"boundBox":{"minX":-135,"minY":45,"maxX":-90,"maxY":90}},{"x":0,"y":0,"level":2,"boundBox":{"minX":-180,"minY":45,"maxX":-135,"maxY":90}}]);
+        // 将三维球定位到苏州
+        viewer.camera.flyTo({
+            // fromDegrees()方法，将经纬度和高程转换为世界坐标
+            destination:Cesium.Cartesian3.fromDegrees(120.62,31.30,600000.0),
+            orientation: {
+                heading :  Cesium.Math.toRadians(348.4202942851978),
+                pitch : Cesium.Math.toRadians(-89.74026687972041),
+                roll : Cesium.Math.toRadians(0)
+            },
+            complete:function callback() {
+                // 定位完成之后的回调函数
+            }
+        });
+        // 显示经纬度海拔
+        var canvas = viewer.scene.canvas;
+        var ellipsoid = viewer.scene.globe.ellipsoid;
+        var handler = new Cesium.ScreenSpaceEventHandler(canvas);
+        handler.setInputAction(function (movement) {
+            var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, ellipsoid);
+            if (cartesian) {
+                var cartographic = viewer.scene.globe.ellipsoid.cartesianToCartographic(cartesian);
+                var lat_String = Cesium.Math.toDegrees(cartographic.latitude).toFixed(4);
+                var log_String = Cesium.Math.toDegrees(cartographic.longitude).toFixed(4);
+                var alti_String = (viewer.camera.positionCartographic.height / 1000).toFixed(2);
+                var elec_String = viewer.scene.globe.getHeight(cartographic).toFixed(4);
+                longitude_show.innerHTML = log_String;
+                latitude_show.innerHTML = lat_String;
+                altitude_show.innerHTML = alti_String;
+                elevation_show.innerHTML = elec_String;
+            }
+        },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        // 加载历史建筑JSON实体
+        let geojsonUrl = "geo.geojson"
         fetch(geojsonUrl)
             .then(response => response.json())
             .then((data) => {
@@ -72,7 +296,7 @@
             var geometryType = feature.geometry.type;
             return pointToEntity(viewer, feature);
         }
-        // Point类型的Geometry转换为Cesium Entity
+        // Point类型的Geometry转换为Cesium Entity，分类渲染
         function pointToEntity(viewer, feature) {
             var position = Cesium.Cartesian3.fromDegrees(feature.geometry.coordinates[0], feature.geometry.coordinates[1]);
             var properties = feature.properties || {};
@@ -98,51 +322,6 @@
             });
             return entity;
         }
-		
-		function getProviderViewModels() {
-			const tiandiKey = "9db2df99c32d3060db0f701ce83618b2";       //天地图key，官网申请
-			const baseUrl = 'http://t{s}.tianditu.gov.cn';
-			//天地图
-			let tiandiVec = new Cesium.UrlTemplateImageryProvider({
-				subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-				url: baseUrl + '/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk='+tiandiKey
-			});
-			//天地图影像
-			let tiandiImg = new Cesium.UrlTemplateImageryProvider({
-				subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-				url: baseUrl + '/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk='+tiandiKey
-			});
-			//天地图标注
-			let tiandiCva = new Cesium.UrlTemplateImageryProvider({
-				subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-				url: baseUrl + '/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk='+tiandiKey
-			});
-			//天地图影像标注
-			let tiandiCia = new Cesium.UrlTemplateImageryProvider({
-				subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
-				url: baseUrl + '/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk='+tiandiKey
-			});
-
-			let tiandiVecModel = new Cesium.ProviderViewModel({
-        		name: '天地图矢量',
-        		category: '天地图矢量地图资源',
-        		iconUrl: Cesium.buildModuleUrl('./Widgets/Images/ImageryProviders/vec_c.png'),
-        		tooltip: 'WMTS 地图服务',
-        		creationFunction: function () {
-            		return [tiandiVec, tiandiCva];
-        		}
-    		});
-    		let tiandiImgModel = new Cesium.ProviderViewModel({
-        		name: '天地图影像',
-        		category: '天地图影像地图资源',
-        		iconUrl: Cesium.buildModuleUrl('./Widgets/Images/ImageryProviders/img_c.png'),
-        		tooltip: 'WMTS 影像服务',
-        		creationFunction: function () {
-            		return [tiandiImg, tiandiCva];
-        		}
-    		});
-			return [tiandiVecModel, tiandiImgModel]
-		}
     </script>
 </body>
 </html>
