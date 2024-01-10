@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>历史建筑地图-苏州南通篇</title>
 </head>
 <body>
     <script src="../Cesium.js"></script>
@@ -18,7 +18,7 @@
 		Cesium.Ion.defaultAccessToken ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3OGNjOGU5Ni00NzUyLTQ2MzYtYjNiMi1hNWU0NTcwOTZjMGEiLCJpZCI6MTg4ODI2LCJpYXQiOjE3MDQ4NDk3NTN9.jy2esjOUJ4h-BTxDFfVxv_i4UJlTAu9s2i_2j_hO_Hc';
         var viewer = new Cesium.Viewer('cesiumContainer',{
             animation:false, //动画控制，默认true
-            baseLayerPicker:true,//地图切换控件(底图以及地形图)是否显示,默认显示true
+            baseLayerPicker:false,//地图切换控件(底图以及地形图)是否显示,默认显示true
             fullscreenButton:false,//全屏按钮,默认显示true
             geocoder:false,//地名查找,默认true
             timeline:false,//时间线,默认true
@@ -31,6 +31,16 @@
             sceneModePicker : true,//是否显示地图2D2.5D3D模式
             sceneMode: 3,//指定地图影像显示2D
         });
+		
+		viewer.imageryLayers.addImageryProvider(
+			new Cesium.UrlTemplateImageryProvider({
+				url: 'http://webst02.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scale=1&style=8',
+				layer: 'tdtAnnoLayer',
+				style: 'default',
+				format: 'image/jpeg',
+				tileMatrixSetID: 'GoogleMapsCompatible',
+			})
+		);
 
         viewer.camera.flyTo({
             // fromDegrees()方法，将经纬度和高程转换为世界坐标
@@ -38,9 +48,12 @@
         });
         let geojsonUrl = "geo.geojson"
 
-        // viewer.dataSources.add(
-        //     Cesium.GeoJsonDataSource.load(geojsonUrl)    
-        // )
+        viewer.homeButton.viewModel.command.beforeExecute.addEventListener(function(e) {
+			e.cancel = true;  
+			viewer.camera.flyTo({
+				destination: Cesium.Rectangle.fromDegrees(120.62, 31.30, 600000.0)
+			});
+		});
 
         fetch(geojsonUrl)
             .then(response => response.json())
